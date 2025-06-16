@@ -579,12 +579,20 @@
 
             const delta = clock.getDelta();
 
-            // Handle player movement
+            // Handle player movement - FIXED DIRECTIONS
             const moveDirection = new THREE.Vector3();
-            if (keys['KeyW']) moveDirection.z = -1;
-            if (keys['KeyS']) moveDirection.z = 1;
-            if (keys['KeyA']) moveDirection.x = -1;
-            if (keys['KeyD']) moveDirection.x = 1;
+            if (keys['KeyW']) moveDirection.z = 1;   // FIXED: W = Forward (positive Z)
+            if (keys['KeyS']) moveDirection.z = -1;  // FIXED: S = Backward (negative Z)
+            if (keys['KeyA']) moveDirection.x = -1;  // A = Left
+            if (keys['KeyD']) moveDirection.x = 1;   // D = Right
+            if (keys['KeyQ']) {                      // Q = Forward Left diagonal
+                moveDirection.z = 1;
+                moveDirection.x = -1;
+            }
+            if (keys['KeyE']) {                      // E = Forward Right diagonal
+                moveDirection.z = 1;
+                moveDirection.x = 1;
+            }
 
             if (moveDirection.length() > 0) {
                 moveDirection.normalize().applyEuler(camera.rotation);
