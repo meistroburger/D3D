@@ -919,11 +919,19 @@ function animate() {
   // Reset movement
   const movement = new THREE.Vector3();
   
-  // Calculate movement direction
-  if (keys['KeyW']) movement.add(forward);
-  if (keys['KeyS']) movement.sub(forward);
-  if (keys['KeyA']) movement.sub(right);
-  if (keys['KeyD']) movement.add(right);
+  // Calculate movement direction - CORRECTED
+  if (keys['KeyW']) movement.add(forward);      // W = Forward
+  if (keys['KeyS']) movement.sub(forward);      // S = Backward  
+  if (keys['KeyA']) movement.sub(right);        // A = Left
+  if (keys['KeyD']) movement.add(right);        // D = Right
+  if (keys['KeyQ']) {                           // Q = Strafe Forward Left
+    movement.add(forward);
+    movement.sub(right);
+  }
+  if (keys['KeyE']) {                           // E = Strafe Forward Right
+    movement.add(forward);
+    movement.add(right);
+  }
   
   // Normalize and apply speed
   if (movement.length() > 0) {
