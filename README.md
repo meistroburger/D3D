@@ -9,7 +9,7 @@
 
 **A first-person shooter survival game built with TypeScript and Three.js**
 
-[🎯 Play Game](https://your-username.github.io/FPS-Survival-Game) • [📝 Report Bug](https://github.com/your-username/FPS-Survival-Game/issues) • [✨ Request Feature](https://github.com/your-username/FPS-Survival-Game/issues)
+[🎯 Play Game](https://meistroburger.github.io/D3D) • [📝 Report Bug](https://github.com/meistroburger/D3D/issues) • [✨ Request Feature](https://github.com/meistroburger/D3D/issues)
 
 </div>
 
@@ -71,8 +71,8 @@ Explore a beautiful 3D world filled with villages, forests, and dynamic weather 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/FPS-Survival-Game.git
-   cd FPS-Survival-Game
+   git clone https://github.com/meistroburger/D3D.git
+   cd D3D
    ```
 
 2. **Install dependencies**
@@ -99,7 +99,7 @@ The built files will be in the `dist/` directory, ready for deployment.
 ## 🏗️ Project Structure
 
 ```
-FPS-Survival-Game/
+D3D/
 ├── public/
 │   └── index.html          # Main HTML file
 ├── src/
@@ -184,8 +184,8 @@ This project is licensed under the Creative Commons Attribution-NonCommercial-Sh
 
 ## 📞 Support
 
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-username/FPS-Survival-Game/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/your-username/FPS-Survival-Game/discussions)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/meistroburger/D3D/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/meistroburger/D3D/discussions)
 - 📧 **Contact**: your-email@example.com
 
 ---
