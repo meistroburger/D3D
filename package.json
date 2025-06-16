@@ -8,10 +8,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "three": "^0.177.0"
+    "three": "latest"
   },
   "devDependencies": {
-    "parcel": "^2.8.3",
-    "typescript": "^5.4.2"
+    "parcel": "latest",
+    "typescript": "latest"
   }
 }
