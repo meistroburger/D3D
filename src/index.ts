@@ -3,7 +3,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // Sky blue
-scene.fog = new THREE.Fog(0x87CEEB, 50, 300);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.0025); // Exponential fog for better depth
 
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -17,7 +17,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.2;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const controls = new PointerLockControls(camera, document.body);
@@ -153,22 +155,46 @@ for (let i = 0; i < positions.length; i += 3) {
 terrainGeometry.attributes.position.needsUpdate = true;
 terrainGeometry.computeVertexNormals();
 
-// Create grass texture
-const grassTexture = new THREE.DataTexture(
-  new Uint8Array([
-    34, 139, 34, 255,   // Forest green
-    50, 205, 50, 255,   // Lime green
-    34, 139, 34, 255,   // Forest green
-    46, 125, 50, 255,   // Dark green
-  ]),
-  2, 2, THREE.RGBAFormat
-);
-grassTexture.magFilter = THREE.NearestFilter;
-grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
-grassTexture.repeat.set(50, 50);
+// Enhanced Terrain with better materials
+function createEnhancedGrassTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+  
+  // Create grass base
+  const gradient = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
+  gradient.addColorStop(0, '#4a7c59');
+  gradient.addColorStop(0.5, '#2d5016');
+  gradient.addColorStop(1, '#1e3a0f');
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 512, 512);
+  
+  // Add noise for texture variation
+  for (let i = 0; i < 8000; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    const size = Math.random() * 3 + 1;
+    const brightness = Math.random() * 0.3 + 0.7;
+    
+    ctx.fillStyle = `rgba(${Math.floor(34 * brightness)}, ${Math.floor(139 * brightness)}, ${Math.floor(34 * brightness)}, 0.8)`;
+    ctx.fillRect(x, y, size, size);
+  }
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(25, 25);
+  return texture;
+}
 
-const terrainMaterial = new THREE.MeshLambertMaterial({ 
-  map: grassTexture,
+const enhancedGrassTexture = createEnhancedGrassTexture();
+
+const terrainMaterial = new THREE.MeshStandardMaterial({ 
+  map: enhancedGrassTexture,
+  normalScale: new THREE.Vector2(0.5, 0.5),
+  roughness: 0.8,
+  metalness: 0.1,
   color: 0x7CFC00
 });
 
@@ -186,110 +212,265 @@ function getTerrainHeight(x: number, z: number): number {
   return height;
 }
 
-// Create Trees
+// Enhanced Tree Creation with LOD
 function createTree(x: number, z: number, height: number = 0) {
   const treeGroup = new THREE.Group();
   
-  // Trunk
-  const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 6, 8);
-  const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+  // Enhanced trunk with better geometry
+  const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.6, 8, 12);
+  const trunkMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x8B4513,
+    roughness: 1.0,
+    metalness: 0,
+    normalScale: new THREE.Vector2(0.8, 0.8)
+  });
+  
+  // Add bark texture simulation
+  trunkMaterial.bumpScale = 0.2;
+  
   const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-  trunk.position.y = 3;
+  trunk.position.y = 4;
   trunk.castShadow = true;
+  trunk.receiveShadow = true;
   treeGroup.add(trunk);
   
-  // Leaves
-  const leavesGeometry = new THREE.SphereGeometry(3, 8, 6);
-  const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
-  const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-  leaves.position.y = 7;
-  leaves.castShadow = true;
-  treeGroup.add(leaves);
+  // Enhanced leaves with multiple layers
+  const leavesGeometry1 = new THREE.SphereGeometry(4, 12, 8);
+  const leavesGeometry2 = new THREE.SphereGeometry(3.5, 12, 8);
+  const leavesGeometry3 = new THREE.SphereGeometry(2.8, 12, 8);
+  
+  const leavesMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x228B22,
+    roughness: 0.9,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.9
+  });
+  
+  const leaves1 = new THREE.Mesh(leavesGeometry1, leavesMaterial);
+  leaves1.position.y = 8;
+  leaves1.castShadow = true;
+  leaves1.receiveShadow = true;
+  
+  const leaves2 = new THREE.Mesh(leavesGeometry2, leavesMaterial);
+  leaves2.position.set(0.5, 9.5, 0.3);
+  leaves2.castShadow = true;
+  
+  const leaves3 = new THREE.Mesh(leavesGeometry3, leavesMaterial);
+  leaves3.position.set(-0.3, 11, -0.2);
+  leaves3.castShadow = true;
+  
+  treeGroup.add(leaves1, leaves2, leaves3);
+  
+  // Add random rotation for variety
+  treeGroup.rotation.y = Math.random() * Math.PI * 2;
+  treeGroup.scale.setScalar(0.8 + Math.random() * 0.4);
   
   treeGroup.position.set(x, height, z);
   scene.add(treeGroup);
   return treeGroup;
 }
 
-// Create Village House
+// Enhanced House with detailed materials
 function createHouse(x: number, z: number, height: number = 0) {
   const houseGroup = new THREE.Group();
   
-  // Base
+  // Enhanced base with better materials
   const baseGeometry = new THREE.BoxGeometry(8, 6, 8);
-  const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xD2691E });
+  const baseMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xD2691E,
+    roughness: 0.7,
+    metalness: 0,
+    bumpScale: 0.3
+  });
+  
   const base = new THREE.Mesh(baseGeometry, baseMaterial);
   base.position.y = 3;
   base.castShadow = true;
   base.receiveShadow = true;
   houseGroup.add(base);
   
-  // Roof
-  const roofGeometry = new THREE.ConeGeometry(6, 4, 4);
-  const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x8B0000 });
+  // Enhanced roof with shingles effect
+  const roofGeometry = new THREE.ConeGeometry(6.5, 4.5, 8);
+  const roofMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x8B0000,
+    roughness: 0.9,
+    metalness: 0.1,
+    bumpScale: 0.5
+  });
+  
   const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-  roof.position.y = 8;
-  roof.rotation.y = Math.PI / 4;
+  roof.position.y = 8.5;
+  roof.rotation.y = Math.PI / 8;
   roof.castShadow = true;
   houseGroup.add(roof);
   
-  // Door
-  const doorGeometry = new THREE.BoxGeometry(1.5, 3, 0.2);
-  const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+  // Enhanced door
+  const doorGeometry = new THREE.BoxGeometry(1.8, 3.5, 0.3);
+  const doorMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x654321,
+    roughness: 0.8,
+    metalness: 0
+  });
+  
   const door = new THREE.Mesh(doorGeometry, doorMaterial);
-  door.position.set(0, 1.5, 4.1);
+  door.position.set(0, 1.75, 4.15);
+  door.castShadow = true;
   houseGroup.add(door);
   
-  // Windows
-  const windowGeometry = new THREE.BoxGeometry(1.5, 1.5, 0.2);
-  const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB });
+  // Door handle
+  const handleGeometry = new THREE.SphereGeometry(0.08, 8, 6);
+  const handleMaterial = new THREE.MeshStandardMaterial({
+    color: 0xFFD700,
+    roughness: 0.2,
+    metalness: 0.8
+  });
   
+  const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+  handle.position.set(0.7, 1.75, 4.3);
+  houseGroup.add(handle);
+  
+  // Enhanced windows with frames
+  const windowFrameGeometry = new THREE.BoxGeometry(2, 2, 0.2);
+  const windowFrameMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x8B4513,
+    roughness: 0.6,
+    metalness: 0
+  });
+  
+  const windowGeometry = new THREE.BoxGeometry(1.6, 1.6, 0.1);
+  const windowMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x87CEEB,
+    roughness: 0.1,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  // Left window
+  const windowFrame1 = new THREE.Mesh(windowFrameGeometry, windowFrameMaterial);
+  windowFrame1.position.set(-2.5, 3, 4.1);
   const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
-  window1.position.set(-2.5, 3, 4.1);
-  houseGroup.add(window1);
+  window1.position.set(-2.5, 3, 4.15);
+  houseGroup.add(windowFrame1, window1);
   
+  // Right window
+  const windowFrame2 = new THREE.Mesh(windowFrameGeometry, windowFrameMaterial);
+  windowFrame2.position.set(2.5, 3, 4.1);
   const window2 = new THREE.Mesh(windowGeometry, windowMaterial);
-  window2.position.set(2.5, 3, 4.1);
-  houseGroup.add(window2);
+  window2.position.set(2.5, 3, 4.15);
+  houseGroup.add(windowFrame2, window2);
+  
+  // Chimney
+  const chimneyGeometry = new THREE.BoxGeometry(1, 3, 1);
+  const chimneyMaterial = new THREE.MeshStandardMaterial({
+    color: 0x696969,
+    roughness: 0.9,
+    metalness: 0
+  });
+  
+  const chimney = new THREE.Mesh(chimneyGeometry, chimneyMaterial);
+  chimney.position.set(2, 9.5, -2);
+  chimney.castShadow = true;
+  houseGroup.add(chimney);
   
   houseGroup.position.set(x, height, z);
   scene.add(houseGroup);
   return houseGroup;
 }
 
-// Create Flowers
+// Enhanced Flowers with particle effects
 function createFlower(x: number, z: number, height: number = 0) {
   const flowerGroup = new THREE.Group();
   
-  // Stem
-  const stemGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 4);
-  const stemMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+  // Enhanced stem
+  const stemGeometry = new THREE.CylinderGeometry(0.03, 0.06, 1.2, 8);
+  const stemMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x228B22,
+    roughness: 0.8,
+    metalness: 0
+  });
   const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-  stem.position.y = 0.5;
+  stem.position.y = 0.6;
+  stem.castShadow = true;
   flowerGroup.add(stem);
   
-  // Flower
-  const flowerGeometry = new THREE.SphereGeometry(0.3, 6, 4);
-  const colors = [0xFF69B4, 0xFF6347, 0x9370DB, 0x00CED1, 0xFFD700];
-  const flowerMaterial = new THREE.MeshLambertMaterial({ 
-    color: colors[Math.floor(Math.random() * colors.length)]
+  // Enhanced flower with petals
+  const petalGeometry = new THREE.SphereGeometry(0.15, 8, 6);
+  const colors = [0xFF69B4, 0xFF6347, 0x9370DB, 0x00CED1, 0xFFD700, 0xFF1493, 0x32CD32];
+  const flowerColor = colors[Math.floor(Math.random() * colors.length)];
+  
+  const petalMaterial = new THREE.MeshStandardMaterial({ 
+    color: flowerColor,
+    roughness: 0.3,
+    metalness: 0,
+    emissive: new THREE.Color(flowerColor).multiplyScalar(0.1)
   });
-  const flower = new THREE.Mesh(flowerGeometry, flowerMaterial);
-  flower.position.y = 1;
-  flowerGroup.add(flower);
+  
+  // Create multiple petals
+  for (let i = 0; i < 6; i++) {
+    const petal = new THREE.Mesh(petalGeometry, petalMaterial);
+    const angle = (i / 6) * Math.PI * 2;
+    petal.position.set(
+      Math.cos(angle) * 0.2,
+      1.3,
+      Math.sin(angle) * 0.2
+    );
+    petal.scale.set(1, 0.6, 0.8);
+    flowerGroup.add(petal);
+  }
+  
+  // Flower center
+  const centerGeometry = new THREE.SphereGeometry(0.08, 8, 6);
+  const centerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xFFD700,
+    roughness: 0.4,
+    metalness: 0.2,
+    emissive: 0x332200
+  });
+  
+  const center = new THREE.Mesh(centerGeometry, centerMaterial);
+  center.position.y = 1.3;
+  flowerGroup.add(center);
+  
+  // Add subtle swaying animation
+  flowerGroup.userData.swayPhase = Math.random() * Math.PI * 2;
   
   flowerGroup.position.set(x, height, z);
-  flowerGroup.scale.setScalar(0.5 + Math.random() * 0.5);
+  flowerGroup.scale.setScalar(0.7 + Math.random() * 0.6);
   scene.add(flowerGroup);
   return flowerGroup;
 }
 
-// Create Rock
+// Enhanced Rocks with better geometry
 function createRock(x: number, z: number, height: number = 0) {
-  const rockGeometry = new THREE.DodecahedronGeometry(1 + Math.random() * 2, 0);
-  const rockMaterial = new THREE.MeshLambertMaterial({ color: 0x696969 });
+  const rockSize = 0.8 + Math.random() * 1.5;
+  const rockGeometry = new THREE.DodecahedronGeometry(rockSize, 1);
+  
+  // Randomly deform vertices for more natural look
+  const positions = rockGeometry.attributes.position.array;
+  for (let i = 0; i < positions.length; i += 3) {
+    positions[i] += (Math.random() - 0.5) * 0.3;
+    positions[i + 1] += (Math.random() - 0.5) * 0.3;
+    positions[i + 2] += (Math.random() - 0.5) * 0.3;
+  }
+  rockGeometry.attributes.position.needsUpdate = true;
+  rockGeometry.computeVertexNormals();
+  
+  const rockMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x696969,
+    roughness: 0.9,
+    metalness: 0.1,
+    bumpScale: 0.5
+  });
+  
   const rock = new THREE.Mesh(rockGeometry, rockMaterial);
-  rock.position.set(x, height + 1, z);
+  rock.position.set(x, height + rockSize * 0.3, z);
+  rock.rotation.set(
+    Math.random() * Math.PI,
+    Math.random() * Math.PI * 2,
+    Math.random() * Math.PI
+  );
   rock.castShadow = true;
   rock.receiveShadow = true;
   scene.add(rock);
@@ -345,45 +526,68 @@ function generateWorld() {
 // Generate the world
 generateWorld();
 
-// Enhanced Lighting for outdoor scene
-const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
+// Enhanced Lighting System
+const ambientLight = new THREE.AmbientLight(0x9DB4FF, 0.3);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
-sunLight.position.set(100, 100, 50);
+// Main sun light with warmer color
+const sunLight = new THREE.DirectionalLight(0xFFF8DC, 1.8);
+sunLight.position.set(150, 120, 80);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 2048;
-sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.mapSize.width = 4096;
+sunLight.shadow.mapSize.height = 4096;
 sunLight.shadow.camera.near = 0.1;
-sunLight.shadow.camera.far = 300;
-sunLight.shadow.camera.left = -150;
-sunLight.shadow.camera.right = 150;
-sunLight.shadow.camera.top = 150;
-sunLight.shadow.camera.bottom = -150;
+sunLight.shadow.camera.far = 500;
+sunLight.shadow.camera.left = -200;
+sunLight.shadow.camera.right = 200;
+sunLight.shadow.camera.top = 200;
+sunLight.shadow.camera.bottom = -200;
+sunLight.shadow.bias = -0.0001;
 scene.add(sunLight);
+
+// Secondary light for fill lighting
+const fillLight = new THREE.DirectionalLight(0x87CEEB, 0.4);
+fillLight.position.set(-100, 50, -50);
+scene.add(fillLight);
+
+// Atmospheric rim light
+const rimLight = new THREE.DirectionalLight(0xFFE4B5, 0.6);
+rimLight.position.set(0, 10, -100);
+scene.add(rimLight);
 
 // Add some clouds
 function createCloud(x: number, y: number, z: number) {
   const cloudGroup = new THREE.Group();
   
-  for (let i = 0; i < 5; i++) {
-    const cloudGeometry = new THREE.SphereGeometry(8 + Math.random() * 4, 8, 6);
-    const cloudMaterial = new THREE.MeshLambertMaterial({ 
+  for (let i = 0; i < 8; i++) {
+    const cloudGeometry = new THREE.SphereGeometry(6 + Math.random() * 8, 16, 12);
+    const cloudMaterial = new THREE.MeshStandardMaterial({ 
       color: 0xffffff,
       transparent: true,
-      opacity: 0.8
+      opacity: 0.6 + Math.random() * 0.3,
+      roughness: 1.0,
+      metalness: 0,
+      emissive: 0x111122,
+      emissiveIntensity: 0.1
     });
+    
     const cloudPart = new THREE.Mesh(cloudGeometry, cloudMaterial);
     cloudPart.position.set(
-      (Math.random() - 0.5) * 20,
-      (Math.random() - 0.5) * 5,
-      (Math.random() - 0.5) * 20
+      (Math.random() - 0.5) * 25,
+      (Math.random() - 0.5) * 8,
+      (Math.random() - 0.5) * 25
     );
+    cloudPart.scale.setScalar(0.8 + Math.random() * 0.4);
     cloudGroup.add(cloudPart);
   }
   
   cloudGroup.position.set(x, y, z);
+  
+  // Add slow rotation
+  cloudGroup.userData.rotationSpeed = (Math.random() - 0.5) * 0.002;
+  
   scene.add(cloudGroup);
+  return cloudGroup;
 }
 
 // Create some clouds
@@ -730,20 +934,10 @@ function shoot() {
     0
   ));
   
-  // Muzzle flash
-  muzzleLight.intensity = 2;
-  muzzleLight.position.copy(camera.position);
-  setTimeout(() => {
-    muzzleLight.intensity = 0;
-  }, 50);
-  
-  // Crosshair feedback
-  crosshair.style.color = 'orange';
-  crosshair.style.transform = 'translate(-50%, -50%) scale(1.2)';
-  setTimeout(() => {
-    crosshair.style.color = 'rgba(255, 255, 255, 0.8)';
-    crosshair.style.transform = 'translate(-50%, -50%) scale(1)';
-  }, 100);
+  // Enhanced muzzle flash
+  const direction = new THREE.Vector3();
+  camera.getWorldDirection(direction);
+  createMuzzleFlash(camera.position, direction);
   
   // Create bullets (shotgun creates multiple)
   const bulletCount = currentWeapon.type === WeaponType.SHOTGUN ? 5 : 1;
@@ -767,6 +961,13 @@ function shoot() {
       lifetime: 3
     });
     scene.add(bullet);
+    
+    // Add bullet trails for visual feedback
+    for (let i = 0; i < bulletCount; i++) {
+      const startPos = camera.position.clone();
+      const endPos = startPos.clone().add(direction.clone().multiplyScalar(50));
+      createBulletTrail(startPos, endPos);
+    }
   }
 }
 
@@ -888,6 +1089,71 @@ document.addEventListener('keyup', onKeyUp);
 
 const clock = new THREE.Clock();
 
+// Enhance bullet with trail effect
+function createBulletTrail(startPos: THREE.Vector3, endPos: THREE.Vector3) {
+  const trailGeometry = new THREE.BufferGeometry();
+  const trailMaterial = new THREE.LineBasicMaterial({
+    color: 0xFFFF00,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const positions = new Float32Array([
+    startPos.x, startPos.y, startPos.z,
+    endPos.x, endPos.y, endPos.z
+  ]);
+  
+  trailGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const trail = new THREE.Line(trailGeometry, trailMaterial);
+  
+  scene.add(trail);
+  
+  // Fade out trail
+  let opacity = 0.8;
+  const fadeTrail = () => {
+    opacity -= 0.05;
+    trailMaterial.opacity = opacity;
+    if (opacity > 0) {
+      requestAnimationFrame(fadeTrail);
+    } else {
+      scene.remove(trail);
+    }
+  };
+  fadeTrail();
+}
+
+// Enhanced muzzle flash
+function createMuzzleFlash(position: THREE.Vector3, direction: THREE.Vector3) {
+  const flashGeometry = new THREE.SphereGeometry(0.5, 8, 6);
+  const flashMaterial = new THREE.MeshBasicMaterial({
+    color: 0xFFAA00,
+    transparent: true,
+    opacity: 1.0
+  });
+  
+  const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+  flash.position.copy(position).add(direction.clone().multiplyScalar(1));
+  scene.add(flash);
+  
+  // Animate flash
+  let scale = 1;
+  let opacity = 1;
+  const animateFlash = () => {
+    scale += 0.3;
+    opacity -= 0.1;
+    flash.scale.setScalar(scale);
+    flashMaterial.opacity = opacity;
+    
+    if (opacity > 0) {
+      requestAnimationFrame(animateFlash);
+    } else {
+      scene.remove(flash);
+    }
+  };
+  animateFlash();
+}
+
+// Enhanced animation loop with dynamic effects
 function animate() {
   requestAnimationFrame(animate);
 
@@ -897,6 +1163,7 @@ function animate() {
   }
 
   const delta = clock.getDelta();
+  const time = clock.getElapsedTime();
   
   // Apply recoil
   if (recoilOffset.length() > 0.001) {
@@ -1013,6 +1280,27 @@ function animate() {
     renderer.setClearColor(new THREE.Color(0x330000).lerp(new THREE.Color(0x101520), 1 - intensity));
   } else {
     renderer.setClearColor(0x101520);
+  }
+
+  // Animate clouds
+  scene.traverse((object) => {
+    if (object.userData.rotationSpeed) {
+      object.rotation.y += object.userData.rotationSpeed;
+    }
+    
+    // Animate flowers swaying
+    if (object.userData.swayPhase !== undefined) {
+      object.rotation.z = Math.sin(time * 2 + object.userData.swayPhase) * 0.1;
+    }
+  });
+  
+  // Dynamic lighting based on time of day
+  const lightIntensity = 1.5 + Math.sin(time * 0.1) * 0.3;
+  sunLight.intensity = lightIntensity;
+  
+  // Subtle camera bobbing when moving
+  if (movement.length() > 0) {
+    camera.position.y += Math.sin(time * 15) * 0.02;
   }
 
   renderer.render(scene, camera);
