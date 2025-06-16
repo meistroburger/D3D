@@ -1,6 +1,6 @@
 # D3D FPS Game
 
-This repository contains a minimal first-person shooter written in TypeScript using [Three.js](https://threejs.org/). The project is inspired by open-source releases of classic games such as **Doom** and **GTA**, but it does not reuse their source code.
+This repository contains a minimal first-person shooter written in TypeScript using [Three.js](https://threejs.org/). The project is inspired by open-source releases of classic games such as **Doom** and **GTA**, but it does not reuse their source code. The code is fully made by different AI models.
 
 ## Getting Started
 
