@@ -235,6 +235,7 @@
         document.body.appendChild(renderer.domElement);
         
         const controls = new PointerLockControls(camera, document.body);
+        scene.add(controls.getObject()); // Add the controls object to the scene
 
         // --- DOM ELEMENTS ---
         // These were declared multiple times in the original code. Fixed to be declared only once.
@@ -518,6 +519,168 @@
             }
         }
 
+        // --- ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!controls.isLocked && !gameOver) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            // Apply recoil to camera rotation
+            if (recoilOffset.length() > 0.001) {
+                const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                euler.setFromQuaternion(camera.quaternion);
+                euler.x += recoilOffset.y * delta * 10;
+                euler.y += recoilOffset.x * delta * 10;
+                
+                // Clamp vertical rotation
+                euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+                
+                camera.quaternion.setFromEuler(euler);
+                recoilOffset.multiplyScalar(0.9);
+            }
+
+            // Enhanced Movement System with proper direction calculation
+            const forward = new THREE.Vector3();
+            const right = new THREE.Vector3();
+            
+            // Get camera direction for movement (ignore pitch for horizontal movement)
+            camera.getWorldDirection(forward);
+            forward.y = 0; // Keep movement horizontal only
+            forward.normalize();
+            
+            // Calculate right vector
+            right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+            right.normalize();
+            
+            // Calculate movement vector based on input
+            const movement = new THREE.Vector3();
+            
+            if (keys['KeyW']) movement.add(forward);      // W = Forward
+            if (keys['KeyS']) movement.sub(forward);      // S = Backward  
+            if (keys['KeyA']) movement.sub(right);        // A = Left
+            if (keys['KeyD']) movement.add(right);        // D = Right
+            if (keys['KeyQ']) {                           // Q = Forward Left diagonal
+                movement.add(forward);
+                movement.sub(right);
+            }
+            if (keys['KeyE']) {                           // E = Forward Right diagonal
+                movement.add(forward);
+                movement.add(right);
+            }
+            
+            // Apply movement if there's input
+            if (movement.length() > 0) {
+                movement.normalize();
+                movement.multiplyScalar(moveSpeed * delta);
+                
+                // Get current position from controls object
+                const controlsObject = controls.getObject();
+                const newPosition = controlsObject.position.clone().add(movement);
+                
+                // Get terrain height at new position
+                const terrainHeight = getTerrainHeight(newPosition.x, newPosition.z);
+                
+                // Apply horizontal movement
+                controlsObject.position.x = newPosition.x;
+                controlsObject.position.z = newPosition.z;
+                
+                // Handle vertical position for terrain following
+                if (isOnGround) {
+                    controlsObject.position.y = terrainHeight + 1.6;
+                }
+                
+                // Add subtle camera bobbing when moving
+                const bobAmount = Math.sin(time * 15) * 0.02;
+                camera.position.y += bobAmount;
+            }
+            
+            // Handle jumping and gravity
+            const controlsObject = controls.getObject();
+            
+            // Jump input
+            if (keys['Space'] && isOnGround) {
+                verticalVelocity = jumpHeight;
+                isOnGround = false;
+            }
+            
+            // Apply gravity when not on ground
+            if (!isOnGround) {
+                verticalVelocity += gravity * delta;
+                controlsObject.position.y += verticalVelocity * delta;
+                
+                // Check if landed on terrain
+                const currentTerrainHeight = getTerrainHeight(controlsObject.position.x, controlsObject.position.z);
+                if (controlsObject.position.y <= currentTerrainHeight + 1.6) {
+                    controlsObject.position.y = currentTerrainHeight + 1.6;
+                    isOnGround = true;
+                    verticalVelocity = 0;
+                }
+            } else {
+                // Keep player on terrain when on ground
+                const currentTerrainHeight = getTerrainHeight(controlsObject.position.x, controlsObject.position.z);
+                controlsObject.position.y = currentTerrainHeight + 1.6;
+            }
+            
+            // Handle continuous shooting
+            if (keys['mousedown']) shoot();
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.lifetime -= delta;
+                if (bullet.lifetime <= 0) {
+                    scene.remove(bullet.mesh);
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                bullet.mesh.position.add(bullet.velocity.clone().multiplyScalar(delta));
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    if (enemy.health > 0 && bullet.mesh.position.distanceTo(enemy.mesh.position) < 1.5) {
+                        enemy.takeDamage(currentWeapon.damage);
+                        scene.remove(bullet.mesh);
+                        bullets.splice(i, 1);
+                        if (enemy.health <= 0) {
+                           // The enemy will be removed in the main enemy update loop
+                        }
+                        break; 
+                    }
+                }
+            }
+            
+            // Update Enemies
+            // Filter out dead enemies in a separate step to avoid modifying array while iterating
+            const livingEnemies = enemies.filter(e => e.health > 0);
+            livingEnemies.forEach(enemy => enemy.update(delta, controlsObject.position));
+            
+            // Check for next wave
+            if (!gameOver && livingEnemies.length === 0 && enemies.length > 0) {
+                // All enemies from the wave are defeated
+                enemies.length = 0; // Clear the array
+                wave++;
+                setTimeout(spawnWave, 2000);
+                updateHUD();
+            }
+
+
+            // Health regeneration
+            if (Date.now() - lastDamageTime > 5000 && playerHealth < maxHealth && !gameOver) {
+                playerHealth = Math.min(maxHealth, playerHealth + 2 * delta);
+                updateHUD();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Enhanced shooting with proper camera direction
         function shoot() {
             if (ammo <= 0 || isReloading || Date.now() - lastShotTime < currentWeapon.fireRate) return;
 
@@ -574,7 +737,13 @@
             bullets.forEach(bullet => scene.remove(bullet.mesh));
             bullets.length = 0;
             
-            camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 5);
+            // Reset position using controls object
+            const controlsObject = controls.getObject();
+            controlsObject.position.set(0, getTerrainHeight(0, 0) + 1.6, 5);
+            
+            // Reset camera rotation
+            camera.rotation.set(0, 0, 0);
+            
             updateHUD();
             overlay.innerHTML = '<h1>FPS SURVIVAL</h1><p>🎯 Click to play</p><p>🎮 WASD to move, SPACE to jump, Mouse to look and shoot</p><p>🔄 R to reload, 1-3 to switch weapons</p><p>🏆 Explore the villages and survive the waves!</p>';
             spawnWave();
@@ -612,113 +781,9 @@
              }
         });
 
-        // --- ANIMATION LOOP ---
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            if (!controls.isLocked && !gameOver) {
-                renderer.render(scene, camera);
-                return;
-            }
-
-            const delta = clock.getDelta();
-
-            // Handle player movement - FIXED DIRECTIONS
-            const moveDirection = new THREE.Vector3();
-            if (keys['KeyW']) moveDirection.z = 1;   // FIXED: W = Forward (positive Z)
-            if (keys['KeyS']) moveDirection.z = -1;  // FIXED: S = Backward (negative Z)
-            if (keys['KeyA']) moveDirection.x = -1;  // A = Left
-            if (keys['KeyD']) moveDirection.x = 1;   // D = Right
-            if (keys['KeyQ']) {                      // Q = Forward Left diagonal
-                moveDirection.z = 1;
-                moveDirection.x = -1;
-            }
-            if (keys['KeyE']) {                      // E = Forward Right diagonal
-                moveDirection.z = 1;
-                moveDirection.x = 1;
-            }
-
-            if (moveDirection.length() > 0) {
-                moveDirection.normalize().applyEuler(camera.rotation);
-                const speed = moveSpeed * delta;
-                controls.moveRight(moveDirection.x * speed);
-                controls.moveForward(moveDirection.z * speed);
-            }
-            
-            // Handle jumping and gravity
-            const playerPos = camera.position;
-            const terrainHeight = getTerrainHeight(playerPos.x, playerPos.z);
-            if (keys['Space'] && isOnGround) {
-                verticalVelocity = jumpHeight;
-                isOnGround = false;
-            }
-            if (!isOnGround) {
-                verticalVelocity += gravity * delta;
-                playerPos.y += verticalVelocity * delta;
-                if (playerPos.y < terrainHeight + 1.6) {
-                    playerPos.y = terrainHeight + 1.6;
-                    isOnGround = true;
-                    verticalVelocity = 0;
-                }
-            } else {
-                 playerPos.y = terrainHeight + 1.6;
-            }
-            
-            // Handle continuous shooting
-            if (keys['mousedown']) shoot();
-
-            // Update Bullets
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const bullet = bullets[i];
-                bullet.lifetime -= delta;
-                if (bullet.lifetime <= 0) {
-                    scene.remove(bullet.mesh);
-                    bullets.splice(i, 1);
-                    continue;
-                }
-
-                bullet.mesh.position.add(bullet.velocity.clone().multiplyScalar(delta));
-
-                for (let j = enemies.length - 1; j >= 0; j--) {
-                    const enemy = enemies[j];
-                    if (enemy.health > 0 && bullet.mesh.position.distanceTo(enemy.mesh.position) < 1.5) {
-                        enemy.takeDamage(currentWeapon.damage);
-                        scene.remove(bullet.mesh);
-                        bullets.splice(i, 1);
-                        if (enemy.health <= 0) {
-                           // The enemy will be removed in the main enemy update loop
-                        }
-                        break; 
-                    }
-                }
-            }
-            
-            // Update Enemies
-            // Filter out dead enemies in a separate step to avoid modifying array while iterating
-            const livingEnemies = enemies.filter(e => e.health > 0);
-            livingEnemies.forEach(enemy => enemy.update(delta, camera.position));
-            
-            // Check for next wave
-            if (!gameOver && livingEnemies.length === 0 && enemies.length > 0) {
-                // All enemies from the wave are defeated
-                enemies.length = 0; // Clear the array
-                wave++;
-                setTimeout(spawnWave, 2000);
-                updateHUD();
-            }
-
-
-            // Health regeneration
-            if (Date.now() - lastDamageTime > 5000 && playerHealth < maxHealth && !gameOver) {
-                playerHealth = Math.min(maxHealth, playerHealth + 2 * delta);
-                updateHUD();
-            }
-
-            renderer.render(scene, camera);
-        }
-
         // --- INITIALIZATION ---
-        camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 5);
+        const controlsObject = controls.getObject();
+        controlsObject.position.set(0, getTerrainHeight(0, 0) + 1.6, 5);
         updateHUD();
         animate();
 

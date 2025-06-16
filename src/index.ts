@@ -23,6 +23,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const controls = new PointerLockControls(camera, document.body);
+scene.add(controls.getObject()); // Add the controls object to the scene
 
 const overlay = document.getElementById('overlay')!;
 const hud = document.getElementById('hud')!;
@@ -31,7 +32,11 @@ const ammoCount = document.getElementById('ammo')!;
 const scoreDisplay = document.getElementById('score')!;
 
 overlay.addEventListener('click', () => {
-  controls.lock();
+  if (gameOver) {
+    restartGame();
+  } else {
+    controls.lock();
+  }
 });
 
 controls.addEventListener('lock', () => {
@@ -599,8 +604,9 @@ for (let i = 0; i < 10; i++) {
   );
 }
 
-// Set initial camera position on terrain
-camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 0);
+// Set initial camera position using controls object
+const controlsObject = controls.getObject();
+controlsObject.position.set(0, getTerrainHeight(0, 0) + 1.6, 0);
 
 // Enhanced Weapon system with crosshair
 const crosshair = document.createElement('div');
@@ -934,9 +940,11 @@ function shoot() {
     0
   ));
   
-  // Enhanced muzzle flash
+  // Get shooting direction from camera
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
+  
+  // Enhanced muzzle flash
   createMuzzleFlash(camera.position, direction);
   
   // Create bullets (shotgun creates multiple)
@@ -946,29 +954,25 @@ function shoot() {
     const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
     bullet.position.copy(camera.position);
     
-    const direction = new THREE.Vector3();
-    camera.getWorldDirection(direction);
-    
-    // Add spread
-    direction.x += (Math.random() - 0.5) * currentWeapon.spread;
-    direction.y += (Math.random() - 0.5) * currentWeapon.spread;
-    direction.z += (Math.random() - 0.5) * currentWeapon.spread;
-    direction.normalize();
+    // Create direction with spread
+    const bulletDirection = direction.clone();
+    bulletDirection.x += (Math.random() - 0.5) * currentWeapon.spread;
+    bulletDirection.y += (Math.random() - 0.5) * currentWeapon.spread;
+    bulletDirection.z += (Math.random() - 0.5) * currentWeapon.spread;
+    bulletDirection.normalize();
     
     bullets.push({
       mesh: bullet,
-      velocity: direction.multiplyScalar(100),
+      velocity: bulletDirection.multiplyScalar(100),
       lifetime: 3
     });
     scene.add(bullet);
-    
-    // Add bullet trails for visual feedback
-    for (let i = 0; i < bulletCount; i++) {
-      const startPos = camera.position.clone();
-      const endPos = startPos.clone().add(direction.clone().multiplyScalar(50));
-      createBulletTrail(startPos, endPos);
-    }
   }
+  
+  // Add bullet trails for visual feedback
+  const startPos = camera.position.clone();
+  const endPos = startPos.clone().add(direction.clone().multiplyScalar(50));
+  createBulletTrail(startPos, endPos);
 }
 
 function reload() {
@@ -1007,12 +1011,16 @@ function restartGame() {
   });
   bullets.length = 0;
   
-  // Reset position
-  camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 0);
+  // Reset position using controls object
+  const controlsObject = controls.getObject();
+  controlsObject.position.set(0, getTerrainHeight(0, 0) + 1.6, 0);
+  
+  // Reset camera rotation
+  camera.rotation.set(0, 0, 0);
   
   // Update UI
   updateHUD();
-  overlay.innerHTML = '<h1>FPS SURVIVAL</h1><p>🎯 Click to play</p><p>🎮 WASD to move, SPACE to jump, Mouse to look and shoot</p><p>🔄 R to reload, 1-3 to switch weapons</p><p>🏆 Explore the villages and survive the waves!</p>';
+  overlay.innerHTML = '<h1>FPS SURVIVAL</h1><p>🎯 Click to play</p><p>🎮 WASD to move, QE for diagonal strafe, SPACE to jump</p><p>🔄 Mouse to look and shoot, R to reload, 1-3 to switch weapons</p><p>🏆 Explore the villages and survive the waves!</p>';
   
   // Spawn initial wave
   spawnWave();
@@ -1153,7 +1161,7 @@ function createMuzzleFlash(position: THREE.Vector3, direction: THREE.Vector3) {
   animateFlash();
 }
 
-// Enhanced animation loop with dynamic effects
+// Enhanced animation loop with proper mouse look integration
 function animate() {
   requestAnimationFrame(animate);
 
@@ -1165,78 +1173,101 @@ function animate() {
   const delta = clock.getDelta();
   const time = clock.getElapsedTime();
   
-  // Apply recoil
+  // Apply recoil to camera rotation
   if (recoilOffset.length() > 0.001) {
-    camera.rotation.x += recoilOffset.y * delta * 10;
-    camera.rotation.y += recoilOffset.x * delta * 10;
+    // Apply recoil to the PointerLockControls object
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    euler.setFromQuaternion(camera.quaternion);
+    euler.x += recoilOffset.y * delta * 10;
+    euler.y += recoilOffset.x * delta * 10;
+    
+    // Clamp vertical rotation to prevent over-rotation
+    euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+    
+    camera.quaternion.setFromEuler(euler);
     recoilOffset.multiplyScalar(0.9);
   }
   
-  // Fixed Movement System
+  // Enhanced Movement System with proper direction calculation
   const forward = new THREE.Vector3();
   const right = new THREE.Vector3();
   
+  // Get camera direction for movement (ignore pitch for horizontal movement)
   camera.getWorldDirection(forward);
-  forward.y = 0; // Keep movement horizontal
+  forward.y = 0; // Keep movement horizontal only
   forward.normalize();
   
+  // Calculate right vector
   right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
   right.normalize();
   
-  // Reset movement
+  // Calculate movement vector based on input
   const movement = new THREE.Vector3();
   
-  // Calculate movement direction - CORRECTED
   if (keys['KeyW']) movement.add(forward);      // W = Forward
   if (keys['KeyS']) movement.sub(forward);      // S = Backward  
   if (keys['KeyA']) movement.sub(right);        // A = Left
   if (keys['KeyD']) movement.add(right);        // D = Right
-  if (keys['KeyQ']) {                           // Q = Strafe Forward Left
+  if (keys['KeyQ']) {                           // Q = Forward Left diagonal
     movement.add(forward);
     movement.sub(right);
   }
-  if (keys['KeyE']) {                           // E = Strafe Forward Right
+  if (keys['KeyE']) {                           // E = Forward Right diagonal
     movement.add(forward);
     movement.add(right);
   }
   
-  // Normalize and apply speed
+  // Apply movement if there's input
   if (movement.length() > 0) {
     movement.normalize();
     movement.multiplyScalar(moveSpeed * delta);
     
-    // Calculate new position
-    const newPosition = camera.position.clone().add(movement);
+    // Get current position from controls object
+    const controlsObject = controls.getObject();
+    const newPosition = controlsObject.position.clone().add(movement);
     
     // Get terrain height at new position
     const terrainHeight = getTerrainHeight(newPosition.x, newPosition.z);
     
-    // Apply movement
-    camera.position.x = newPosition.x;
-    camera.position.z = newPosition.z;
+    // Apply horizontal movement
+    controlsObject.position.x = newPosition.x;
+    controlsObject.position.z = newPosition.z;
     
-    // Handle vertical movement and terrain following
+    // Handle vertical position for terrain following
     if (isOnGround) {
-      camera.position.y = terrainHeight + 1.6;
+      controlsObject.position.y = terrainHeight + 1.6;
     }
+    
+    // Add subtle camera bobbing when moving
+    const bobAmount = Math.sin(time * 15) * 0.02;
+    camera.position.y += bobAmount;
   }
   
-  // Apply gravity and vertical movement
+  // Handle jumping and gravity
+  const controlsObject = controls.getObject();
+  
+  // Jump input
+  if (keys['Space'] && isOnGround) {
+    verticalVelocity = jumpHeight;
+    isOnGround = false;
+  }
+  
+  // Apply gravity when not on ground
   if (!isOnGround) {
     verticalVelocity += gravity * delta;
-    camera.position.y += verticalVelocity * delta;
+    controlsObject.position.y += verticalVelocity * delta;
     
     // Check if landed on terrain
-    const currentTerrainHeight = getTerrainHeight(camera.position.x, camera.position.z);
-    if (camera.position.y <= currentTerrainHeight + 1.6) {
-      camera.position.y = currentTerrainHeight + 1.6;
+    const currentTerrainHeight = getTerrainHeight(controlsObject.position.x, controlsObject.position.z);
+    if (controlsObject.position.y <= currentTerrainHeight + 1.6) {
+      controlsObject.position.y = currentTerrainHeight + 1.6;
       isOnGround = true;
       verticalVelocity = 0;
     }
   } else {
     // Keep player on terrain when on ground
-    const currentTerrainHeight = getTerrainHeight(camera.position.x, camera.position.z);
-    camera.position.y = currentTerrainHeight + 1.6;
+    const currentTerrainHeight = getTerrainHeight(controlsObject.position.x, controlsObject.position.z);
+    controlsObject.position.y = currentTerrainHeight + 1.6;
   }
 
   // Enhanced bullet physics
@@ -1269,7 +1300,7 @@ function animate() {
   }
   
   // Update enemies with enhanced AI
-  const playerPosition = camera.position.clone();
+  const playerPosition = controlsObject.position.clone();
   enemies.forEach(enemy => {
     enemy.update(delta, playerPosition);
   });
@@ -1298,11 +1329,6 @@ function animate() {
   const lightIntensity = 1.5 + Math.sin(time * 0.1) * 0.3;
   sunLight.intensity = lightIntensity;
   
-  // Subtle camera bobbing when moving
-  if (movement.length() > 0) {
-    camera.position.y += Math.sin(time * 15) * 0.02;
-  }
-
   renderer.render(scene, camera);
 }
 
