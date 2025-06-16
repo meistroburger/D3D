@@ -3,14 +3,123 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FPS Game</title>
+  <title>FPS Survival Game</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    #overlay { position: absolute; top: 10px; left: 10px; color: white; z-index: 1; }
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      font-family: Arial, sans-serif;
+      background: #000;
+    }
+    
+    #overlay { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      color: white; 
+      z-index: 1000; 
+      text-align: center;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 10px;
+    }
+    
+    #overlay h1 {
+      font-size: 3em;
+      margin: 0 0 20px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    
+    #overlay p {
+      font-size: 1.2em;
+      margin: 10px 0;
+    }
+    
+    #hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+    }
+    
+    .health-bar-container {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      width: 200px;
+      height: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #fff;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    #health {
+      height: 100%;
+      background: #00ff00;
+      transition: width 0.3s ease;
+      border-radius: 8px;
+    }
+    
+    .ammo-display {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    
+    .score-display {
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    
+    .health-label {
+      position: absolute;
+      bottom: 55px;
+      left: 30px;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
   </style>
 </head>
 <body>
-  <div id="overlay">Click to play</div>
+  <div id="overlay">
+    <h1>FPS SURVIVAL</h1>
+    <p>Click to play</p>
+    <p>WASD to move, Mouse to look and shoot, R to reload</p>
+    <p>Survive as long as possible!</p>
+  </div>
+  
+  <div id="hud">
+    <div class="health-label">HEALTH</div>
+    <div class="health-bar-container">
+      <div id="health"></div>
+    </div>
+    
+    <div class="ammo-display">
+      AMMO: <span id="ammo">30</span>
+    </div>
+    
+    <div class="score-display">
+      SCORE: <span id="score">0</span>
+    </div>
+  </div>
+  
   <script type="module" src="../src/index.ts"></script>
 </body>
 </html>
