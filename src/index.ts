@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x101520);
-scene.fog = new THREE.Fog(0x101520, 50, 200);
+scene.background = new THREE.Color(0x87CEEB); // Sky blue
+scene.fog = new THREE.Fog(0x87CEEB, 50, 300);
 
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -17,7 +17,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.0;
 document.body.appendChild(renderer.domElement);
 
 const controls = new PointerLockControls(camera, document.body);
@@ -54,6 +54,13 @@ let gameOver = false;
 let isReloading = false;
 let lastDamageTime = 0;
 let recoilOffset = new THREE.Vector3();
+
+// Movement variables
+const moveSpeed = 15;
+const jumpHeight = 8;
+let isOnGround = true;
+let verticalVelocity = 0;
+const gravity = -25;
 
 // Weapon System
 enum WeaponType {
@@ -124,29 +131,272 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// Enhanced Lighting
-const ambientLight = new THREE.AmbientLight(0x404080, 0.3);
+// Create Terrain with Height Map
+const terrainSize = 500;
+const terrainSegments = 100;
+const terrainGeometry = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
+
+// Generate height map for terrain
+const positions = terrainGeometry.attributes.position.array;
+for (let i = 0; i < positions.length; i += 3) {
+  const x = positions[i];
+  const z = positions[i + 1];
+  
+  // Create hills and valleys using noise
+  const height = Math.sin(x * 0.01) * Math.cos(z * 0.01) * 8 +
+                 Math.sin(x * 0.02) * Math.sin(z * 0.02) * 4 +
+                 Math.sin(x * 0.05) * Math.cos(z * 0.03) * 2;
+  
+  positions[i + 2] = height;
+}
+
+terrainGeometry.attributes.position.needsUpdate = true;
+terrainGeometry.computeVertexNormals();
+
+// Create grass texture
+const grassTexture = new THREE.DataTexture(
+  new Uint8Array([
+    34, 139, 34, 255,   // Forest green
+    50, 205, 50, 255,   // Lime green
+    34, 139, 34, 255,   // Forest green
+    46, 125, 50, 255,   // Dark green
+  ]),
+  2, 2, THREE.RGBAFormat
+);
+grassTexture.magFilter = THREE.NearestFilter;
+grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+grassTexture.repeat.set(50, 50);
+
+const terrainMaterial = new THREE.MeshLambertMaterial({ 
+  map: grassTexture,
+  color: 0x7CFC00
+});
+
+const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+terrain.rotation.x = -Math.PI / 2;
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+// Function to get terrain height at position
+function getTerrainHeight(x: number, z: number): number {
+  // Simple height calculation based on our terrain generation
+  const height = Math.sin(x * 0.01) * Math.cos(z * 0.01) * 8 +
+                 Math.sin(x * 0.02) * Math.sin(z * 0.02) * 4 +
+                 Math.sin(x * 0.05) * Math.cos(z * 0.03) * 2;
+  return height;
+}
+
+// Create Trees
+function createTree(x: number, z: number, height: number = 0) {
+  const treeGroup = new THREE.Group();
+  
+  // Trunk
+  const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 6, 8);
+  const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+  const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+  trunk.position.y = 3;
+  trunk.castShadow = true;
+  treeGroup.add(trunk);
+  
+  // Leaves
+  const leavesGeometry = new THREE.SphereGeometry(3, 8, 6);
+  const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+  const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+  leaves.position.y = 7;
+  leaves.castShadow = true;
+  treeGroup.add(leaves);
+  
+  treeGroup.position.set(x, height, z);
+  scene.add(treeGroup);
+  return treeGroup;
+}
+
+// Create Village House
+function createHouse(x: number, z: number, height: number = 0) {
+  const houseGroup = new THREE.Group();
+  
+  // Base
+  const baseGeometry = new THREE.BoxGeometry(8, 6, 8);
+  const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xD2691E });
+  const base = new THREE.Mesh(baseGeometry, baseMaterial);
+  base.position.y = 3;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  houseGroup.add(base);
+  
+  // Roof
+  const roofGeometry = new THREE.ConeGeometry(6, 4, 4);
+  const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x8B0000 });
+  const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+  roof.position.y = 8;
+  roof.rotation.y = Math.PI / 4;
+  roof.castShadow = true;
+  houseGroup.add(roof);
+  
+  // Door
+  const doorGeometry = new THREE.BoxGeometry(1.5, 3, 0.2);
+  const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+  const door = new THREE.Mesh(doorGeometry, doorMaterial);
+  door.position.set(0, 1.5, 4.1);
+  houseGroup.add(door);
+  
+  // Windows
+  const windowGeometry = new THREE.BoxGeometry(1.5, 1.5, 0.2);
+  const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB });
+  
+  const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
+  window1.position.set(-2.5, 3, 4.1);
+  houseGroup.add(window1);
+  
+  const window2 = new THREE.Mesh(windowGeometry, windowMaterial);
+  window2.position.set(2.5, 3, 4.1);
+  houseGroup.add(window2);
+  
+  houseGroup.position.set(x, height, z);
+  scene.add(houseGroup);
+  return houseGroup;
+}
+
+// Create Flowers
+function createFlower(x: number, z: number, height: number = 0) {
+  const flowerGroup = new THREE.Group();
+  
+  // Stem
+  const stemGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 4);
+  const stemMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+  const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+  stem.position.y = 0.5;
+  flowerGroup.add(stem);
+  
+  // Flower
+  const flowerGeometry = new THREE.SphereGeometry(0.3, 6, 4);
+  const colors = [0xFF69B4, 0xFF6347, 0x9370DB, 0x00CED1, 0xFFD700];
+  const flowerMaterial = new THREE.MeshLambertMaterial({ 
+    color: colors[Math.floor(Math.random() * colors.length)]
+  });
+  const flower = new THREE.Mesh(flowerGeometry, flowerMaterial);
+  flower.position.y = 1;
+  flowerGroup.add(flower);
+  
+  flowerGroup.position.set(x, height, z);
+  flowerGroup.scale.setScalar(0.5 + Math.random() * 0.5);
+  scene.add(flowerGroup);
+  return flowerGroup;
+}
+
+// Create Rock
+function createRock(x: number, z: number, height: number = 0) {
+  const rockGeometry = new THREE.DodecahedronGeometry(1 + Math.random() * 2, 0);
+  const rockMaterial = new THREE.MeshLambertMaterial({ color: 0x696969 });
+  const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+  rock.position.set(x, height + 1, z);
+  rock.castShadow = true;
+  rock.receiveShadow = true;
+  scene.add(rock);
+  return rock;
+}
+
+// Generate World
+function generateWorld() {
+  // Create forests
+  for (let i = 0; i < 150; i++) {
+    const x = (Math.random() - 0.5) * 400;
+    const z = (Math.random() - 0.5) * 400;
+    const height = getTerrainHeight(x, z);
+    createTree(x, z, height);
+  }
+  
+  // Create villages (3 villages)
+  const villages = [
+    { x: -80, z: -80 },
+    { x: 100, z: -60 },
+    { x: -40, z: 120 }
+  ];
+  
+  villages.forEach(village => {
+    const villageHeight = getTerrainHeight(village.x, village.z);
+    
+    // Create houses in village
+    for (let i = 0; i < 5; i++) {
+      const houseX = village.x + (Math.random() - 0.5) * 40;
+      const houseZ = village.z + (Math.random() - 0.5) * 40;
+      const houseHeight = getTerrainHeight(houseX, houseZ);
+      createHouse(houseX, houseZ, houseHeight);
+    }
+  });
+  
+  // Create flowers scattered around
+  for (let i = 0; i < 300; i++) {
+    const x = (Math.random() - 0.5) * 450;
+    const z = (Math.random() - 0.5) * 450;
+    const height = getTerrainHeight(x, z);
+    createFlower(x, z, height);
+  }
+  
+  // Create rocks
+  for (let i = 0; i < 50; i++) {
+    const x = (Math.random() - 0.5) * 400;
+    const z = (Math.random() - 0.5) * 400;
+    const height = getTerrainHeight(x, z);
+    createRock(x, z, height);
+  }
+}
+
+// Generate the world
+generateWorld();
+
+// Enhanced Lighting for outdoor scene
+const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(100, 100, 50);
-directionalLight.castShadow = true;
-directionalLight.shadow.mapSize.width = 4096;
-directionalLight.shadow.mapSize.height = 4096;
-directionalLight.shadow.camera.near = 0.1;
-directionalLight.shadow.camera.far = 500;
-directionalLight.shadow.camera.left = -200;
-directionalLight.shadow.camera.right = 200;
-directionalLight.shadow.camera.top = 200;
-directionalLight.shadow.camera.bottom = -200;
-scene.add(directionalLight);
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+sunLight.position.set(100, 100, 50);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 0.1;
+sunLight.shadow.camera.far = 300;
+sunLight.shadow.camera.left = -150;
+sunLight.shadow.camera.right = 150;
+sunLight.shadow.camera.top = 150;
+sunLight.shadow.camera.bottom = -150;
+scene.add(sunLight);
 
-// Muzzle flash light
-const muzzleLight = new THREE.PointLight(0xff8800, 0, 5);
-muzzleLight.position.copy(camera.position);
-scene.add(muzzleLight);
+// Add some clouds
+function createCloud(x: number, y: number, z: number) {
+  const cloudGroup = new THREE.Group();
+  
+  for (let i = 0; i < 5; i++) {
+    const cloudGeometry = new THREE.SphereGeometry(8 + Math.random() * 4, 8, 6);
+    const cloudMaterial = new THREE.MeshLambertMaterial({ 
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.8
+    });
+    const cloudPart = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    cloudPart.position.set(
+      (Math.random() - 0.5) * 20,
+      (Math.random() - 0.5) * 5,
+      (Math.random() - 0.5) * 20
+    );
+    cloudGroup.add(cloudPart);
+  }
+  
+  cloudGroup.position.set(x, y, z);
+  scene.add(cloudGroup);
+}
 
-camera.position.y = 1.6;
+// Create some clouds
+for (let i = 0; i < 10; i++) {
+  createCloud(
+    (Math.random() - 0.5) * 800,
+    80 + Math.random() * 40,
+    (Math.random() - 0.5) * 800
+  );
+}
+
+// Set initial camera position on terrain
+camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 0);
 
 // Enhanced Weapon system with crosshair
 const crosshair = document.createElement('div');
@@ -454,31 +704,6 @@ setInterval(() => {
   }
 }, 1000);
 
-// Movement
-const velocity = new THREE.Vector3();
-const direction = new THREE.Vector3();
-const keys: Record<string, boolean> = {};
-
-function onKeyDown(event: KeyboardEvent) {
-  keys[event.code] = true;
-  
-  if (event.code === 'KeyR' && ammo < currentWeapon.maxAmmo && !isReloading) {
-    reload();
-  }
-  
-  // Weapon switching
-  if (event.code === 'Digit1') currentWeapon = weapons[WeaponType.RIFLE];
-  if (event.code === 'Digit2') currentWeapon = weapons[WeaponType.SHOTGUN];
-  if (event.code === 'Digit3') currentWeapon = weapons[WeaponType.PISTOL];
-}
-
-function onKeyUp(event: KeyboardEvent) {
-  keys[event.code] = false;
-}
-
-document.addEventListener('keydown', onKeyDown);
-document.addEventListener('keyup', onKeyUp);
-
 // Shooting
 document.addEventListener('click', (event) => {
   if (controls.isLocked && !gameOver) {
@@ -635,19 +860,64 @@ function animate() {
     recoilOffset.multiplyScalar(0.9);
   }
   
-  // Movement
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
-
-  direction.z = Number(keys['KeyW']) - Number(keys['KeyS']);
-  direction.x = Number(keys['KeyD']) - Number(keys['KeyA']);
-  direction.normalize();
-
-  if (keys['KeyW'] || keys['KeyS']) velocity.z -= direction.z * 400.0 * delta;
-  if (keys['KeyA'] || keys['KeyD']) velocity.x -= direction.x * 400.0 * delta;
-
-  controls.moveRight(-velocity.x * delta);
-  controls.moveForward(-velocity.z * delta);
+  // Fixed Movement System
+  const forward = new THREE.Vector3();
+  const right = new THREE.Vector3();
+  
+  camera.getWorldDirection(forward);
+  forward.y = 0; // Keep movement horizontal
+  forward.normalize();
+  
+  right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+  right.normalize();
+  
+  // Reset movement
+  const movement = new THREE.Vector3();
+  
+  // Calculate movement direction
+  if (keys['KeyW']) movement.add(forward);
+  if (keys['KeyS']) movement.sub(forward);
+  if (keys['KeyA']) movement.sub(right);
+  if (keys['KeyD']) movement.add(right);
+  
+  // Normalize and apply speed
+  if (movement.length() > 0) {
+    movement.normalize();
+    movement.multiplyScalar(moveSpeed * delta);
+    
+    // Calculate new position
+    const newPosition = camera.position.clone().add(movement);
+    
+    // Get terrain height at new position
+    const terrainHeight = getTerrainHeight(newPosition.x, newPosition.z);
+    
+    // Apply movement
+    camera.position.x = newPosition.x;
+    camera.position.z = newPosition.z;
+    
+    // Handle vertical movement and terrain following
+    if (isOnGround) {
+      camera.position.y = terrainHeight + 1.6;
+    }
+  }
+  
+  // Apply gravity and vertical movement
+  if (!isOnGround) {
+    verticalVelocity += gravity * delta;
+    camera.position.y += verticalVelocity * delta;
+    
+    // Check if landed on terrain
+    const currentTerrainHeight = getTerrainHeight(camera.position.x, camera.position.z);
+    if (camera.position.y <= currentTerrainHeight + 1.6) {
+      camera.position.y = currentTerrainHeight + 1.6;
+      isOnGround = true;
+      verticalVelocity = 0;
+    }
+  } else {
+    // Keep player on terrain when on ground
+    const currentTerrainHeight = getTerrainHeight(camera.position.x, camera.position.z);
+    camera.position.y = currentTerrainHeight + 1.6;
+  }
 
   // Enhanced bullet physics
   for (let i = bullets.length - 1; i >= 0; i--) {
