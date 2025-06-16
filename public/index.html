@@ -161,14 +161,14 @@
     {
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+            "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
         }
     }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
-        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 
         // --- SCENE SETUP ---
         const scene = new THREE.Scene();
