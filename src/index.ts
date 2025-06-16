@@ -417,16 +417,16 @@ document.body.appendChild(crosshair);
 // Particle Systems
 const particleGeometry = new THREE.BufferGeometry();
 const particleCount = 1000;
-const positions = new Float32Array(particleCount * 3);
+const particlePositions = new Float32Array(particleCount * 3);
 const velocities = new Float32Array(particleCount * 3);
 const lifetimes = new Float32Array(particleCount);
 
 for (let i = 0; i < particleCount * 3; i++) {
-  positions[i] = 0;
+  particlePositions[i] = 0;
   velocities[i] = 0;
 }
 
-particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
 const particleMaterial = new THREE.PointsMaterial({
   color: 0xff4400,
   size: 0.1,
@@ -792,6 +792,7 @@ function restartGame() {
   wave = 1;
   enemiesKilled = 0;
   gameOver = false;
+  isReloading = false;
   
   // Clear enemies
   enemies.forEach(enemy => {
@@ -806,17 +807,24 @@ function restartGame() {
   bullets.length = 0;
   
   // Reset position
-  camera.position.set(0, 1.6, 0);
+  camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 0);
   
   // Update UI
   updateHUD();
-  overlay.innerHTML = '<h1>Click to play</h1><p>WASD to move, Mouse to look and shoot, R to reload</p>';
+  overlay.innerHTML = '<h1>FPS SURVIVAL</h1><p>🎯 Click to play</p><p>🎮 WASD to move, SPACE to jump, Mouse to look and shoot</p><p>🔄 R to reload, 1-3 to switch weapons</p><p>🏆 Explore the villages and survive the waves!</p>';
   
-  // Spawn initial enemies
-  for (let i = 0; i < 5; i++) {
-    setTimeout(() => spawnEnemy(), i * 2000);
-  }
+  // Spawn initial wave
+  spawnWave();
 }
+
+// Enhanced UI
+const overlay = document.getElementById('overlay')!;
+const hud = document.getElementById('hud')!;
+const healthBar = document.getElementById('health')!;
+const ammoCount = document.getElementById('ammo')!;
+const scoreDisplay = document.getElementById('score')!;
+const waveDisplay = document.getElementById('wave')!;
+const crosshair = document.getElementById('crosshair')!;
 
 function updateHUD() {
   healthBar.style.width = Math.max(0, playerHealth) + '%';
@@ -829,6 +837,7 @@ function updateHUD() {
   
   ammoCount.textContent = isReloading ? 'RELOADING...' : `${ammo}/${currentWeapon.maxAmmo}`;
   scoreDisplay.textContent = score.toString();
+  waveDisplay.textContent = `Wave ${wave}`;
   
   // Update weapon display
   const weaponDisplay = document.getElementById('weapon') || (() => {
@@ -838,8 +847,44 @@ function updateHUD() {
     hud.appendChild(elem);
     return elem;
   })();
-  weaponDisplay.textContent = `${currentWeapon.type.toUpperCase()} | Wave ${wave}`;
+  weaponDisplay.textContent = `${currentWeapon.type.toUpperCase()}`;
 }
+
+// Muzzle flash light
+const muzzleLight = new THREE.PointLight(0xff8800, 0, 5);
+muzzleLight.position.copy(camera.position);
+scene.add(muzzleLight);
+
+// Movement
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+const keys: Record<string, boolean> = {};
+
+function onKeyDown(event: KeyboardEvent) {
+  keys[event.code] = true;
+  
+  if (event.code === 'KeyR' && ammo < currentWeapon.maxAmmo && !isReloading) {
+    reload();
+  }
+  
+  // Weapon switching
+  if (event.code === 'Digit1') currentWeapon = weapons[WeaponType.RIFLE];
+  if (event.code === 'Digit2') currentWeapon = weapons[WeaponType.SHOTGUN];
+  if (event.code === 'Digit3') currentWeapon = weapons[WeaponType.PISTOL];
+  
+  // Jump
+  if (event.code === 'Space' && isOnGround) {
+    verticalVelocity = jumpHeight;
+    isOnGround = false;
+  }
+}
+
+function onKeyUp(event: KeyboardEvent) {
+  keys[event.code] = false;
+}
+
+document.addEventListener('keydown', onKeyDown);
+document.addEventListener('keyup', onKeyUp);
 
 const clock = new THREE.Clock();
 

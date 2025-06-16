@@ -1,224 +1,682 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FPS Survival Game</title>
-  <style>
-    body { 
-      margin: 0; 
-      overflow: hidden; 
-      font-family: 'Courier New', monospace;
-      background: #000;
-      cursor: none;
-    }
-    
-    #overlay { 
-      position: absolute; 
-      top: 50%; 
-      left: 50%; 
-      transform: translate(-50%, -50%); 
-      color: white; 
-      z-index: 1000; 
-      text-align: center;
-      background: rgba(0, 0, 0, 0.9);
-      padding: 30px;
-      border-radius: 15px;
-      border: 2px solid #444;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
-    }
-    
-    #overlay h1 {
-      font-size: 3.5em;
-      margin: 0 0 20px 0;
-      text-shadow: 0 0 10px #ff4400;
-      color: #ff4400;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-    }
-    
-    #overlay p {
-      font-size: 1.3em;
-      margin: 10px 0;
-      color: #ccc;
-    }
-    
-    #hud {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-      z-index: 100;
-      display: none;
-    }
-    
-    .health-bar-container {
-      position: absolute;
-      bottom: 40px;
-      left: 40px;
-      width: 250px;
-      height: 25px;
-      background: rgba(0, 0, 0, 0.8);
-      border: 2px solid #444;
-      border-radius: 15px;
-      overflow: hidden;
-      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-    }
-    
-    #health {
-      height: 100%;
-      background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00);
-      transition: width 0.3s ease;
-      border-radius: 13px;
-      box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-    }
-    
-    .ammo-display {
-      position: absolute;
-      bottom: 40px;
-      right: 40px;
-      color: white;
-      font-size: 28px;
-      font-weight: bold;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-      background: rgba(0, 0, 0, 0.6);
-      padding: 10px 20px;
-      border-radius: 10px;
-      border: 2px solid #444;
-    }
-    
-    .score-display {
-      position: absolute;
-      top: 40px;
-      right: 40px;
-      color: white;
-      font-size: 24px;
-      font-weight: bold;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-      background: rgba(0, 0, 0, 0.6);
-      padding: 15px 25px;
-      border-radius: 10px;
-      border: 2px solid #444;
-    }
-    
-    .health-label {
-      position: absolute;
-      bottom: 70px;
-      left: 40px;
-      color: white;
-      font-size: 16px;
-      font-weight: bold;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-    }
-    
-    .weapon-display {
-      position: absolute;
-      top: 40px;
-      left: 40px;
-      color: #ffaa00;
-      font-size: 20px;
-      font-weight: bold;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-      background: rgba(0, 0, 0, 0.6);
-      padding: 15px 25px;
-      border-radius: 10px;
-      border: 2px solid #444;
-      text-transform: uppercase;
-    }
-    
-    .minimap {
-      position: absolute;
-      top: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 150px;
-      height: 150px;
-      background: rgba(0, 0, 0, 0.8);
-      border: 2px solid #444;
-      border-radius: 50%;
-      overflow: hidden;
-    }
-    
-    .controls-hint {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 14px;
-      text-align: center;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 10px 20px;
-      border-radius: 10px;
-      border: 1px solid #333;
-    }
-    
-    /* Damage indicator */
-    .damage-indicator {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-      background: radial-gradient(circle, transparent 60%, rgba(255, 0, 0, 0.3) 100%);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    
-    /* Loading screen animation */
-    @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
-    
-    .reloading {
-      animation: pulse 0.5s infinite;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPS Survival Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000;
+            color: white;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #ff4500;
+            text-shadow: 2px 2px 8px #000;
+        }
+
+        #overlay p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        #hud {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: calc(100% - 40px);
+            display: none;
+            color: white;
+            z-index: 5;
+            text-shadow: 1px 1px 4px #000;
+        }
+        
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 24px;
+            font-family: monospace;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 1000;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+            transition: all 0.1s ease;
+        }
+
+        .hud-item {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        #health-container {
+            width: 200px;
+            height: 20px;
+            border: 2px solid #fff;
+            background-color: rgba(0,0,0,0.5);
+            border-radius: 5px;
+        }
+
+        #health {
+            width: 100%;
+            height: 100%;
+            background-color: #00ff00;
+            transition: width 0.3s ease, background-color 0.3s ease;
+            border-radius: 3px;
+        }
+        
+        #score-wave-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+        }
+
+        .weapon-display {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        #damage-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 10px solid rgba(255, 0, 0, 0);
+            box-sizing: border-box;
+            pointer-events: none;
+            transition: border-color 0.5s ease-out;
+            z-index: 9;
+        }
+    </style>
 </head>
 <body>
-  <div id="overlay">
-    <h1>FPS SURVIVAL</h1>
-    <p>🎯 Click to play</p>
-    <p>🎮 WASD to move, SPACE to jump, Mouse to look and shoot</p>
-    <p>🔄 R to reload, 1-3 to switch weapons</p>
-    <p>🏆 Explore the villages and survive the waves!</p>
-    <p>🌲 Beautiful natural world with forests, villages, and flowers</p>
-  </div>
-  
-  <div id="hud">
-    <div class="health-label">HEALTH</div>
-    <div class="health-bar-container">
-      <div id="health"></div>
+    <!-- Game overlay for instructions and start -->
+    <div id="overlay">
+        <h1>FPS SURVIVAL</h1>
+        <p>🎯 Click to play</p>
+        <p>🎮 WASD to move, SPACE to jump, Mouse to look and shoot</p>
+        <p>🔄 R to reload, 1-3 to switch weapons</p>
+        <p>🏆 Explore the villages and survive the waves!</p>
+    </div>
+
+    <!-- Heads-Up Display (HUD) -->
+    <div id="hud">
+        <div class="hud-item">
+            <strong>Health</strong>
+            <div id="health-container">
+                <div id="health"></div>
+            </div>
+        </div>
+        <div class="hud-item">
+            <strong>Ammo:</strong> <span id="ammo">30/30</span>
+        </div>
+        <div id="score-wave-container">
+            <div class="hud-item"><strong>Score:</strong> <span id="score">0</span></div>
+            <div class="hud-item"><strong id="wave">Wave 1</strong></div>
+        </div>
+        <div id="weapon" class="weapon-display">RIFLE</div>
     </div>
     
-    <div class="ammo-display">
-      🔫 <span id="ammo">30</span>
-    </div>
+    <!-- Crosshair -->
+    <div id="crosshair">+</div>
     
-    <div class="score-display">
-      🏆 SCORE: <span id="score">0</span>
-    </div>
-    
-    <div class="weapon-display" id="weapon">
-      RIFLE | Wave 1
-    </div>
-    
-    <div class="minimap" id="minimap">
-      <!-- Minimap will be populated by JavaScript -->
-    </div>
-    
-    <div class="controls-hint">
-      💡 Explore villages and forests • Jump with SPACE • Health regenerates when safe
-    </div>
-    
-    <div class="damage-indicator" id="damage-indicator"></div>
-  </div>
-  
-  <script type="module" src="../src/index.ts"></script>
+    <!-- Damage Indicator -->
+    <div id="damage-indicator"></div>
+
+    <!-- The user code had invalid imports, so an import map is used to fix this -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky blue
+        scene.fog = new THREE.Fog(0x87CEEB, 50, 300);
+
+        const camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        document.body.appendChild(renderer.domElement);
+        
+        const controls = new PointerLockControls(camera, document.body);
+
+        // --- DOM ELEMENTS ---
+        // These were declared multiple times in the original code. Fixed to be declared only once.
+        const overlay = document.getElementById('overlay');
+        const hud = document.getElementById('hud');
+        const healthBar = document.getElementById('health');
+        const ammoCount = document.getElementById('ammo');
+        const scoreDisplay = document.getElementById('score');
+        const waveDisplay = document.getElementById('wave');
+        const crosshair = document.getElementById('crosshair');
+        const damageIndicator = document.getElementById('damage-indicator');
+
+        // --- EVENT LISTENERS ---
+        overlay.addEventListener('click', () => {
+            if(gameOver) {
+                restartGame();
+            } else {
+                controls.lock();
+            }
+        });
+
+        controls.addEventListener('lock', () => {
+            overlay.style.display = 'none';
+            hud.style.display = 'block';
+        });
+
+        controls.addEventListener('unlock', () => {
+            overlay.style.display = 'block';
+            hud.style.display = 'none';
+        });
+
+        // --- GAME STATE ---
+        let playerHealth = 100;
+        let maxHealth = 100;
+        let ammo = 30;
+        let score = 0;
+        let wave = 1;
+        let enemiesKilled = 0;
+        let gameOver = false;
+        let isReloading = false;
+        let lastDamageTime = 0;
+        let recoilOffset = new THREE.Vector3();
+
+        // --- MOVEMENT VARIABLES ---
+        const moveSpeed = 15;
+        const jumpHeight = 8;
+        let isOnGround = true;
+        let verticalVelocity = 0;
+        const gravity = -25;
+        const keys = {};
+
+        // --- WEAPON SYSTEM ---
+        const WeaponType = {
+            RIFLE: 'rifle',
+            SHOTGUN: 'shotgun',
+            PISTOL: 'pistol'
+        };
+
+        const weapons = {
+            [WeaponType.RIFLE]: { type: WeaponType.RIFLE, damage: 25, fireRate: 150, maxAmmo: 30, reloadTime: 2000, spread: 0.02, recoil: 0.03 },
+            [WeaponType.SHOTGUN]: { type: WeaponType.SHOTGUN, damage: 15, fireRate: 800, maxAmmo: 8, reloadTime: 3000, spread: 0.15, recoil: 0.15 },
+            [WeaponType.PISTOL]: { type: WeaponType.PISTOL, damage: 20, fireRate: 300, maxAmmo: 15, reloadTime: 1500, spread: 0.05, recoil: 0.08 }
+        };
+
+        let currentWeapon = weapons[WeaponType.RIFLE];
+        let lastShotTime = 0;
+
+        // --- WORLD GENERATION ---
+        // Function to get terrain height at a position
+        function getTerrainHeight(x, z) {
+            // Simple noise function for hills and valleys
+            return Math.sin(x * 0.02) * Math.cos(z * 0.02) * 8 +
+                   Math.sin(x * 0.03) * Math.sin(z * 0.03) * 4 +
+                   Math.sin(x * 0.05) * Math.cos(z * 0.05) * 2;
+        }
+        
+        // Create Terrain with Height Map
+        const terrainSize = 500;
+        const terrainSegments = 100;
+        const terrainGeometry = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
+
+        const positions = terrainGeometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i];
+            const y = positions[i + 1]; // Corresponds to Z in world space after rotation
+            positions[i + 2] = getTerrainHeight(x, y); // z component is height
+        }
+        terrainGeometry.attributes.position.needsUpdate = true;
+        terrainGeometry.computeVertexNormals();
+
+        // Create grass texture procedurally
+        const grassCanvas = document.createElement('canvas');
+        grassCanvas.width = 32;
+        grassCanvas.height = 32;
+        const context = grassCanvas.getContext('2d');
+        for (let y = 0; y < 32; y++) {
+            for (let x = 0; x < 32; x++) {
+                const green = Math.floor(60 + Math.random() * 60);
+                context.fillStyle = `rgb(30, ${green}, 30)`;
+                context.fillRect(x, y, 1, 1);
+            }
+        }
+        const grassTexture = new THREE.CanvasTexture(grassCanvas);
+        grassTexture.wrapS = THREE.RepeatWrapping;
+        grassTexture.wrapT = THREE.RepeatWrapping;
+        grassTexture.repeat.set(50, 50);
+
+        const terrainMaterial = new THREE.MeshLambertMaterial({ map: grassTexture });
+        const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+        terrain.rotation.x = -Math.PI / 2;
+        terrain.receiveShadow = true;
+        scene.add(terrain);
+
+        function createTree(x, z) {
+            const height = getTerrainHeight(x, z);
+            const treeGroup = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 6, 8), new THREE.MeshLambertMaterial({ color: 0x8B4513 }));
+            trunk.position.y = 3;
+            trunk.castShadow = true;
+            const leaves = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 6), new THREE.MeshLambertMaterial({ color: 0x228B22 }));
+            leaves.position.y = 7;
+            leaves.castShadow = true;
+            treeGroup.add(trunk, leaves);
+            treeGroup.position.set(x, height, z);
+            scene.add(treeGroup);
+        }
+
+        function createHouse(x, z) {
+            const height = getTerrainHeight(x, z);
+            const houseGroup = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 8), new THREE.MeshLambertMaterial({ color: 0xD2691E }));
+            base.position.y = 3;
+            base.castShadow = true;
+            base.receiveShadow = true;
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 4, 4), new THREE.MeshLambertMaterial({ color: 0x8B0000 }));
+            roof.position.y = 8;
+            roof.rotation.y = Math.PI / 4;
+            roof.castShadow = true;
+            houseGroup.add(base, roof);
+            houseGroup.position.set(x, height, z);
+            scene.add(houseGroup);
+        }
+
+        // Generate World Elements
+        for (let i = 0; i < 100; i++) createTree((Math.random() - 0.5) * 400, (Math.random() - 0.5) * 400);
+        for (let i = 0; i < 5; i++) createHouse(100 + (Math.random() - 0.5) * 40, -60 + (Math.random() - 0.5) * 40);
+        for (let i = 0; i < 5; i++) createHouse(-80 + (Math.random() - 0.5) * 40, -80 + (Math.random() - 0.5) * 40);
+
+
+        // --- LIGHTING ---
+        scene.add(new THREE.AmbientLight(0x404080, 0.6));
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        sunLight.position.set(100, 100, 50);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 500;
+        sunLight.shadow.camera.left = -150;
+        sunLight.shadow.camera.right = 150;
+        sunLight.shadow.camera.top = 150;
+        sunLight.shadow.camera.bottom = -150;
+        scene.add(sunLight);
+
+        // --- BULLET & ENEMY SYSTEM ---
+        const bullets = [];
+        const bulletGeometry = new THREE.SphereGeometry(0.05, 6, 6);
+        const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const enemies = [];
+        const EnemyType = { BASIC: 'basic', FAST: 'fast', HEAVY: 'heavy', BOSS: 'boss' };
+        const enemyConfigs = {
+            [EnemyType.BASIC]: { health: 50, speed: 2, damage: 10, color: 0xff0000, size: [1, 2, 1], score: 10 },
+            [EnemyType.FAST]: { health: 25, speed: 4, damage: 5, color: 0xff4400, size: [0.8, 1.5, 0.8], score: 15 },
+            [EnemyType.HEAVY]: { health: 100, speed: 1, damage: 20, color: 0x880000, size: [1.5, 2.5, 1.5], score: 25 },
+            [EnemyType.BOSS]: { health: 250, speed: 1.5, damage: 30, color: 0x440088, size: [2, 3, 2], score: 100 }
+        };
+        
+        class Enemy {
+            constructor(x, z, type = EnemyType.BASIC) {
+                const config = enemyConfigs[type];
+                this.type = type;
+                this.health = config.health;
+                this.maxHealth = config.health;
+                this.speed = config.speed;
+                this.damage = config.damage;
+                this.score = config.score;
+                this.lastAttackTime = 0;
+
+                const material = new THREE.MeshStandardMaterial({
+                    color: config.color,
+                    roughness: 0.8,
+                    metalness: 0.2
+                });
+                this.mesh = new THREE.Mesh(new THREE.BoxGeometry(...config.size), material);
+                this.mesh.position.set(x, getTerrainHeight(x, z) + config.size[1] / 2, z);
+                this.mesh.castShadow = true;
+                scene.add(this.mesh);
+            }
+
+            update(deltaTime, playerPosition) {
+                if (this.health <= 0) return;
+
+                const direction = new THREE.Vector3().subVectors(playerPosition, this.mesh.position).normalize();
+                this.mesh.position.x += direction.x * this.speed * deltaTime;
+                this.mesh.position.z += direction.z * this.speed * deltaTime;
+
+                const terrainHeight = getTerrainHeight(this.mesh.position.x, this.mesh.position.z);
+                this.mesh.position.y = terrainHeight + this.mesh.geometry.parameters.height / 2;
+
+                this.mesh.lookAt(playerPosition.x, this.mesh.position.y, playerPosition.z);
+
+                const distance = this.mesh.position.distanceTo(playerPosition);
+                if (distance < 3 && Date.now() - this.lastAttackTime > 1000) {
+                    this.attackPlayer();
+                    this.lastAttackTime = Date.now();
+                }
+            }
+
+            attackPlayer() {
+                playerHealth -= this.damage;
+                lastDamageTime = Date.now();
+                
+                // Show damage indicator effect
+                damageIndicator.style.borderColor = `rgba(255, 0, 0, 0.5)`;
+                setTimeout(() => {
+                    damageIndicator.style.borderColor = `rgba(255, 0, 0, 0)`;
+                }, 100);
+
+                updateHUD();
+                if (playerHealth <= 0) {
+                    gameOver = true;
+                    overlay.innerHTML = `<h1>GAME OVER</h1><p>Score: ${score}</p><p>Click to restart</p>`;
+                    controls.unlock();
+                }
+            }
+
+            takeDamage(damage) {
+                this.health -= damage;
+                const material = this.mesh.material;
+                const originalColor = new THREE.Color(enemyConfigs[this.type].color);
+                material.color.set(0xffffff);
+                setTimeout(() => {
+                    material.color.copy(originalColor);
+                }, 100);
+
+                if (this.health <= 0) {
+                    scene.remove(this.mesh);
+                    score += this.score;
+                    enemiesKilled++;
+                    updateHUD();
+                }
+            }
+        }
+
+        // --- GAME LOGIC ---
+        function getEnemyTypeForWave() {
+            if (wave >= 10 && Math.random() < 0.1) return EnemyType.BOSS;
+            if (wave >= 5 && Math.random() < 0.3) return EnemyType.HEAVY;
+            if (wave >= 3 && Math.random() < 0.4) return EnemyType.FAST;
+            return EnemyType.BASIC;
+        }
+
+        function spawnWave() {
+            if (gameOver) return;
+            const enemyCount = 3 + wave * 2;
+            for (let i = 0; i < enemyCount; i++) {
+                setTimeout(() => {
+                    if (gameOver) return;
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 40 + Math.random() * 40;
+                    const playerDirection = new THREE.Vector3();
+                    camera.getWorldDirection(playerDirection);
+                    const spawnAngle = Math.atan2(playerDirection.z, playerDirection.x) + (Math.random() > 0.5 ? 1 : -1) * (Math.PI/2 + Math.random() * Math.PI);
+                    
+                    const x = camera.position.x + Math.cos(spawnAngle) * distance;
+                    const z = camera.position.z + Math.sin(spawnAngle) * distance;
+
+                    const enemyType = getEnemyTypeForWave();
+                    enemies.push(new Enemy(x, z, enemyType));
+                }, i * 500);
+            }
+        }
+
+        function shoot() {
+            if (ammo <= 0 || isReloading || Date.now() - lastShotTime < currentWeapon.fireRate) return;
+
+            lastShotTime = Date.now();
+            ammo--;
+            updateHUD();
+
+            recoilOffset.add(new THREE.Vector3((Math.random() - 0.5) * currentWeapon.recoil, -currentWeapon.recoil * 0.5, 0));
+            
+            crosshair.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            setTimeout(() => crosshair.style.transform = 'translate(-50%, -50%) scale(1)', 100);
+
+            const bulletCount = currentWeapon.type === WeaponType.SHOTGUN ? 5 : 1;
+            for (let i = 0; i < bulletCount; i++) {
+                const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+                const direction = new THREE.Vector3();
+                camera.getWorldDirection(direction);
+                direction.x += (Math.random() - 0.5) * currentWeapon.spread;
+                direction.y += (Math.random() - 0.5) * currentWeapon.spread;
+                direction.z += (Math.random() - 0.5) * currentWeapon.spread;
+
+                const velocity = direction.multiplyScalar(200);
+                const position = new THREE.Vector3();
+                camera.getWorldPosition(position);
+
+                bullets.push({ mesh: bullet, velocity, lifetime: 3 });
+                bullet.position.copy(position).add(direction.normalize().multiplyScalar(1.5));
+                scene.add(bullet);
+            }
+        }
+
+        function reload() {
+            if (isReloading || ammo === currentWeapon.maxAmmo) return;
+            isReloading = true;
+            updateHUD();
+            setTimeout(() => {
+                ammo = currentWeapon.maxAmmo;
+                isReloading = false;
+                updateHUD();
+            }, currentWeapon.reloadTime);
+        }
+
+        function restartGame() {
+            playerHealth = 100;
+            ammo = currentWeapon.maxAmmo;
+            score = 0;
+            wave = 1;
+            enemiesKilled = 0;
+            gameOver = false;
+            isReloading = false;
+            
+            enemies.forEach(enemy => scene.remove(enemy.mesh));
+            enemies.length = 0;
+            bullets.forEach(bullet => scene.remove(bullet.mesh));
+            bullets.length = 0;
+            
+            camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 5);
+            updateHUD();
+            overlay.innerHTML = '<h1>FPS SURVIVAL</h1><p>🎯 Click to play</p><p>🎮 WASD to move, SPACE to jump, Mouse to look and shoot</p><p>🔄 R to reload, 1-3 to switch weapons</p><p>🏆 Explore the villages and survive the waves!</p>';
+            spawnWave();
+        }
+
+        function updateHUD() {
+            healthBar.style.width = Math.max(0, playerHealth) + '%';
+            healthBar.style.backgroundColor = playerHealth > 30 ? '#00ff00' : '#ff0000';
+            ammoCount.textContent = isReloading ? 'RELOADING...' : `${ammo}/${currentWeapon.maxAmmo}`;
+            scoreDisplay.textContent = score.toString();
+            waveDisplay.textContent = `Wave ${wave}`;
+            document.getElementById('weapon').textContent = currentWeapon.type.toUpperCase();
+        }
+
+        // --- KEYBOARD & MOUSE INPUT ---
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+            if (e.code === 'KeyR') reload();
+            if (e.code === 'Digit1') currentWeapon = weapons[WeaponType.RIFLE];
+            if (e.code === 'Digit2') currentWeapon = weapons[WeaponType.SHOTGUN];
+            if (e.code === 'Digit3') currentWeapon = weapons[WeaponType.PISTOL];
+            updateHUD();
+        });
+        
+        document.addEventListener('mousedown', (e) => {
+             if(e.button === 0 && controls.isLocked) {
+                 keys['mousedown'] = true;
+             }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+             if(e.button === 0 && controls.isLocked) {
+                 keys['mousedown'] = false;
+             }
+        });
+
+        // --- ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!controls.isLocked && !gameOver) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const delta = clock.getDelta();
+
+            // Handle player movement
+            const moveDirection = new THREE.Vector3();
+            if (keys['KeyW']) moveDirection.z = -1;
+            if (keys['KeyS']) moveDirection.z = 1;
+            if (keys['KeyA']) moveDirection.x = -1;
+            if (keys['KeyD']) moveDirection.x = 1;
+
+            if (moveDirection.length() > 0) {
+                moveDirection.normalize().applyEuler(camera.rotation);
+                const speed = moveSpeed * delta;
+                controls.moveRight(moveDirection.x * speed);
+                controls.moveForward(moveDirection.z * speed);
+            }
+            
+            // Handle jumping and gravity
+            const playerPos = camera.position;
+            const terrainHeight = getTerrainHeight(playerPos.x, playerPos.z);
+            if (keys['Space'] && isOnGround) {
+                verticalVelocity = jumpHeight;
+                isOnGround = false;
+            }
+            if (!isOnGround) {
+                verticalVelocity += gravity * delta;
+                playerPos.y += verticalVelocity * delta;
+                if (playerPos.y < terrainHeight + 1.6) {
+                    playerPos.y = terrainHeight + 1.6;
+                    isOnGround = true;
+                    verticalVelocity = 0;
+                }
+            } else {
+                 playerPos.y = terrainHeight + 1.6;
+            }
+            
+            // Handle continuous shooting
+            if (keys['mousedown']) shoot();
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.lifetime -= delta;
+                if (bullet.lifetime <= 0) {
+                    scene.remove(bullet.mesh);
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                bullet.mesh.position.add(bullet.velocity.clone().multiplyScalar(delta));
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    if (enemy.health > 0 && bullet.mesh.position.distanceTo(enemy.mesh.position) < 1.5) {
+                        enemy.takeDamage(currentWeapon.damage);
+                        scene.remove(bullet.mesh);
+                        bullets.splice(i, 1);
+                        if (enemy.health <= 0) {
+                           // The enemy will be removed in the main enemy update loop
+                        }
+                        break; 
+                    }
+                }
+            }
+            
+            // Update Enemies
+            // Filter out dead enemies in a separate step to avoid modifying array while iterating
+            const livingEnemies = enemies.filter(e => e.health > 0);
+            livingEnemies.forEach(enemy => enemy.update(delta, camera.position));
+            
+            // Check for next wave
+            if (!gameOver && livingEnemies.length === 0 && enemies.length > 0) {
+                // All enemies from the wave are defeated
+                enemies.length = 0; // Clear the array
+                wave++;
+                setTimeout(spawnWave, 2000);
+                updateHUD();
+            }
+
+
+            // Health regeneration
+            if (Date.now() - lastDamageTime > 5000 && playerHealth < maxHealth && !gameOver) {
+                playerHealth = Math.min(maxHealth, playerHealth + 2 * delta);
+                updateHUD();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- INITIALIZATION ---
+        camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 5);
+        updateHUD();
+        animate();
+
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
 </body>
 </html>
